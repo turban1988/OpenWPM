@@ -87,7 +87,8 @@ class LocalListener(BaseListener):
         """Add `record` to database"""
 
         if len(record) != 2:
-            self.logger.error("Query is not the correct length")
+            self.logger.error("Query is not the correct length %s",
+                              repr(record))
             return
 
         table, data = record
@@ -182,16 +183,13 @@ class LocalListener(BaseListener):
         else:
             self.mark_visit_complete(visit_id)
 
-
     def shutdown(self):
-        for visit_id in self.browser_map.values():
-            self.mark_visit_complete(visit_id)
+        super(LocalListener, self).shutdown()
         self.db.commit()
         self.db.close()
         if self.ldb_enabled:
             self._write_content_batch()
             self.ldb.close()
-        super(LocalListener, self).shutdown()
 
 
 class LocalAggregator(BaseAggregator):
@@ -281,7 +279,7 @@ class LocalAggregator(BaseAggregator):
             listener_process_runner, self.manager_params,
             self.ldb_enabled)
 
-    def shutdown(self):
+    def shutdown(self, relaxed: bool = False) -> None:
         """ Terminates the aggregator"""
+        super(LocalAggregator, self).shutdown(relaxed)
         self.db.close()
-        super(LocalAggregator, self).shutdown()

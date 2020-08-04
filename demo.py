@@ -26,12 +26,8 @@ for i in range(NUM_BROWSERS):
     browser_params[i]['js_instrument'] = True
     # Record the callstack of all WebRequests made
     browser_params[i]['callstack_instrument'] = True
-    
-    # Record calls to window.postMessage
-    #browser_params[i]['js_instrument_settings'] = {"window.document": ["cookie", "referrer"]}
-    #browser_params[i]['js_instrument_settings'] = {"window": ["postMessage"]}
 
-    # Record the dns resolutions
+    # Record the DNS resolutions
     browser_params[i]['dns_instrument'] = True
 
 # Launch only browser 0 headless
