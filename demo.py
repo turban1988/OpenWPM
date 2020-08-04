@@ -8,6 +8,7 @@ sites = [
     'http://www.princeton.edu',
     'http://citp.princeton.edu/'
 ]
+#sites=['file:///home/openwpm/Desktop/test1/Page1.html',]
 
 # Loads the default manager params
 # and NUM_BROWSERS copies of the default browser params
@@ -25,6 +26,14 @@ for i in range(NUM_BROWSERS):
     browser_params[i]['js_instrument'] = True
     # Record the callstack of all WebRequests made
     browser_params[i]['callstack_instrument'] = True
+    
+    # Record calls to window.postMessage
+    #browser_params[i]['js_instrument_settings'] = {"window.document": ["cookie", "referrer"]}
+    #browser_params[i]['js_instrument_settings'] = {"window": ["postMessage"]}
+
+    # Record the dns resolutions
+    browser_params[i]['dns_instrument'] = True
+
 # Launch only browser 0 headless
 browser_params[0]['display_mode'] = 'headless'
 
@@ -46,7 +55,7 @@ for site in sites:
         print("CommandSequence {} done".format(val)))
 
     # Start by visiting the page
-    command_sequence.get(sleep=3, timeout=60)
+    command_sequence.get(sleep=15, timeout=60)
 
     # Run commands across the three browsers (simple parallelization)
     manager.execute_command_sequence(command_sequence)

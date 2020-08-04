@@ -86,24 +86,10 @@ class ShutdownCommand(BaseCommand):
 
 
 class FinalizeCommand(BaseCommand):
-    """ This command is automatically appended to the end of a CommandSequence
+    """ This is automatically appended to the end of a command_sequence
         It's apperance means there won't be any more commands for this
         visit_id
     """
 
-    def __init__(self, sleep):
-        self.sleep = sleep
-
     def __repr__(self):
-        return f"FinalizeCommand({self.sleep})"
-
-
-class InitializeCommand(BaseCommand):
-    """ The command is automatically prepended to the beginning of a
-        CommandSequence
-        It initializes state both in the extensions as well in as the
-        Aggregator
-    """
-
-    def __repr__(self):
-        return "IntitializeCommand()"
+        return "FinalizeCommand()"

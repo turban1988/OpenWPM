@@ -2,7 +2,7 @@ from typing import Callable, List, Tuple
 
 from .Commands.Types import (BaseCommand, BrowseCommand, DumpPageSourceCommand,
                              DumpProfCommand, FinalizeCommand, GetCommand,
-                             InitializeCommand, RecursiveDumpPageSourceCommand,
+                             RecursiveDumpPageSourceCommand,
                              RunCustomFunctionCommand, SaveScreenshotCommand,
                              ScreenshotFullPageCommand)
 from .Errors import CommandExecutionError
@@ -25,8 +25,7 @@ class CommandSequence:
 
     def __init__(self, url: str, reset: bool = False,
                  blocking: bool = False, retry_number: int = None,
-                 site_rank: int = None,
-                 callback: Callable[[bool], None] = None):
+                 site_rank: int = None, callback: Callable[[], None] = None):
         """Initialize command sequence.
 
         Parameters
@@ -43,13 +42,6 @@ class CommandSequence:
         site_rank : int, optional
             Integer indicating the ranking of the page to visit, saved
             to `site_visits`
-        callback :
-            A callback to be invoked once all data regarding this
-            CommandSequence has been saved out or it has been interrupted.
-            If the command sequence completes and all data is saved
-            successfully, `True` will be passed to the callback.
-            Otherwise `False` will be passed. A value of `False` indicates
-            that the data saved from the site visit may be incomplete or empty.
         """
         self.url = url
         self.reset = reset
@@ -165,16 +157,14 @@ class CommandSequence:
         command = RunCustomFunctionCommand(function_handle, func_args)
         self._commands_with_timeout.append((command, timeout))
 
-    def mark_done(self, success: bool):
+    def mark_done(self):
         if self.callback is not None:
-            self.callback(success)
+            self.callback()
 
     def get_commands_with_timeout(self) -> List[Tuple[BaseCommand, int]]:
         """ Returns a list of all commands in the command_sequence
             appended by a finalize command
         """
-
         commands = list(self._commands_with_timeout)
-        commands.insert(0, (InitializeCommand(), 10))
-        commands.append((FinalizeCommand(sleep=5), 10))
+        commands.append((FinalizeCommand(), 10))
         return commands

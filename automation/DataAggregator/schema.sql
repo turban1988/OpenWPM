@@ -221,9 +221,20 @@ CREATE TABLE IF NOT EXISTS callstacks(
   call_stack TEXT
 );
 
-/*
- # Logging all interrupted visits
+
+/* 
+# DNS Requests
  */
-CREATE TABLE IF NOT EXISTS incomplete_visits (
-   visit_id INTEGER NOT NULL
-);
+CREATE TABLE IF NOT EXISTS dns_responses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  request_id INTEGER NOT NULL,
+  crawl_id INTEGER NOT NULL,
+  visit_id INTEGER NOT NULL,
+  hostname TEXT,
+  addresses TEXT,
+  used_address TEXT,
+  canonical_name TEXT,
+  is_TRR INTEGER, 
+  time_stamp DATETIME NOT NULL
+ );
+

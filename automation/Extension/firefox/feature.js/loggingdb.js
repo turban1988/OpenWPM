@@ -17,9 +17,7 @@ let listeningSocketCallback =  async (data) => {
             if (visitID) {
                 logWarn("Set visit_id while another visit_id was set")
             }
-            visitID = _visitID;
-            data["crawl_id"] = crawlID;
-            dataAggregator.send(JSON.stringify(["meta_information", data]));
+            visitID = parseInt(_visitID, 10);
             break;
         case "Finalize":
             if (!visitID) {
@@ -31,6 +29,7 @@ let listeningSocketCallback =  async (data) => {
             }
             data["crawl_id"] = crawlID;
             data["success"] = true;
+            data["meta_type"] = "finalize";
             dataAggregator.send(JSON.stringify(["meta_information", data]));
             visitID = null;
             break;
@@ -178,8 +177,8 @@ export let saveRecord = function(instrument, record) {
             logDebug('Extension-' + crawlID + ' : Dropping navigation to about:blank in intermediate period');
             return;
         }
-        logWarn(`Extension-${crawlID} : visitID is null while attempting to insert into table ${instrument}\n` +
-                    JSON.stringify(record));
+        logCritical('Extension-' + crawlID + ' : visitID is null while attempting to insert ' +
+                    JSON.stringify(record) + ' into table ' + instrument);
         record["visit_id"] = -1;
         
     }

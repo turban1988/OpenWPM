@@ -3,7 +3,7 @@ import logging
 import queue
 import threading
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from multiprocess import Queue
 
@@ -12,8 +12,6 @@ from ..utilities.multiprocess_utils import Process
 
 RECORD_TYPE_CONTENT = 'page_content'
 RECORD_TYPE_SPECIAL = 'meta_information'
-ACTION_TYPE_FINALIZE = 'Finalize'
-ACTION_TYPE_INITIALIZE = 'Initialize'
 RECORD_TYPE_CREATE = 'create_table'
 STATUS_TIMEOUT = 120  # seconds
 SHUTDOWN_SIGNAL = 'SHUTDOWN'
@@ -23,7 +21,7 @@ STATUS_UPDATE_INTERVAL = 5  # seconds
 BaseParams = Tuple[Queue, Queue, Queue]
 
 
-class BaseListener:
+class BaseListener(object):
     """Base class for the data aggregator listener process. This class is used
     alongside the BaseAggregator class to spawn an aggregator process that
     combines data collected in multiple crawl processes and stores it
@@ -35,7 +33,7 @@ class BaseListener:
     __metaclass = abc.ABCMeta
 
     def __init__(self, status_queue: Queue, completion_queue: Queue,
-                 shutdown_queue: Queue) -> None:
+                 shutdown_queue: Queue):
         """
         Creates a BaseListener instance
 
@@ -54,12 +52,10 @@ class BaseListener:
         self.completion_queue = completion_queue
         self.shutdown_queue = shutdown_queue
         self._shutdown_flag = False
-        self._relaxed = False
         self._last_update = time.time()  # last status update time
         self.record_queue: Queue = None  # Initialized on `startup`
         self.logger = logging.getLogger('openwpm')
-        self.curent_visit_ids: List[int] = list()  # All visit_ids in flight
-        self.sock: Optional[serversocket] = None
+        self.browser_map: Dict[int, int] = dict()  # maps crawl_id to visit_id
 
     @abc.abstractmethod
     def process_record(self, record):
@@ -83,15 +79,15 @@ class BaseListener:
 
     @abc.abstractmethod
     def run_visit_completion_tasks(self, visit_id: int,
-                                   interrupted: bool = False):
+                                   is_shutdown: bool = False):
         """Will be called once a visit_id will receive no new records
 
         Parameters
         ----------
         visit_id
             the id that will receive no more updates
-        interrupted
-           whether a visit is unfinished"""
+        is_shutdown
+            if this call is made during shutdown"""
 
     def startup(self):
         """Run listener startup tasks
@@ -103,16 +99,9 @@ class BaseListener:
         self.record_queue = self.sock.queue
 
     def should_shutdown(self):
-        """Return `True` if the listener has received a shutdown signal
-        Sets `self._relaxed` and `self.shutdown_flag`
-        `self._relaxed means this shutdown is
-        happening after all visits have completed and
-        all data can be seen as complete
-        """
+        """Return `True` if the listener has received a shutdown signal"""
         if not self.shutdown_queue.empty():
-            _, relaxed = self.shutdown_queue.get()
-            self._relaxed = relaxed
-            self._shutdown_flag = True
+            self.shutdown_queue.get()
             self.logger.info("Received shutdown signal!")
             return True
         return False
@@ -157,22 +146,13 @@ class BaseListener:
     def mark_visit_complete(self, visit_id: int) -> None:
         """ This function should be called to indicate that all records
         relating to a certain visit_id have been saved"""
-        self.completion_queue.put((visit_id, False))
-
-    def mark_visit_incomplete(self, visit_id: int):
-        """ This function should be called to indicate that a certain visit
-        has been interrupted and will forever be incomplete
-        """
-        self.completion_queue.put((visit_id, True))
+        self.completion_queue.put(visit_id)
 
     def shutdown(self):
         """Run shutdown tasks defined in the base listener
 
         Note: Child classes should call this method"""
         self.sock.close()
-        for visit_id in self.curent_visit_ids:
-            self.run_visit_completion_tasks(visit_id,
-                                            interrupted=not self._relaxed)
 
     def drain_queue(self):
         """ Ensures queue is empty before closing """
@@ -183,7 +163,7 @@ class BaseListener:
         self.logger.info("Queue was flushed completely")
 
 
-class BaseAggregator:
+class BaseAggregator(object):
     """Base class for the data aggregator interface. This class is used
     alongside the BaseListener class to spawn an aggregator process that
     combines data from multiple crawl processes. The BaseAggregator class
@@ -255,15 +235,11 @@ class BaseAggregator:
             )
         return self._last_status
 
-    def get_new_completed_visits(self) -> List[Tuple[int, bool]]:
-        """
-        Returns a list of all visit ids that have been processed since
-        the last time the method was called and whether or not they
-        have been interrupted.
-
+    def get_new_completed_visits(self) -> List[int]:
+        """Returns a list of all visit ids that have been saved at the time
+        of calling this method.
         This method will return an empty list in case no visit ids have
-        been processed since the last time this method was called
-        """
+        been finished since the last time this method was called"""
         finished_visit_ids = list()
         while not self.completion_queue.empty():
             finished_visit_ids.append(self.completion_queue.get())
@@ -281,13 +257,13 @@ class BaseAggregator:
         self.listener_process.start()
         self.listener_address = self.status_queue.get()
 
-    def shutdown(self, relaxed: bool = True):
+    def shutdown(self):
         """ Terminate the aggregator listener process"""
         self.logger.debug(
             "Sending the shutdown signal to the %s listener process..." %
             type(self).__name__
         )
-        self.shutdown_queue.put((SHUTDOWN_SIGNAL, relaxed))
+        self.shutdown_queue.put(SHUTDOWN_SIGNAL)
         start_time = time.time()
         self.listener_process.join(300)
         self.logger.debug(
